@@ -1,59 +1,57 @@
 import streamlit as st
 from openai import OpenAI
-from dotenv import load_dotenv
 import os
 import urllib.parse
 
-# Load environment
-load_dotenv()
-
-# OpenAI API Key
-api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-client = OpenAI(api_key=api_key)
-
-# Page config
+# Config
 st.set_page_config(page_title="🧠 Explain Like I'm 5", layout="centered")
 base_url = "https://explain-like-im-five.streamlit.app/"
 
-# Set defaults in session
+# Set OpenAI key
+api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=api_key)
+
+# Initialize session state
 if "text" not in st.session_state:
-    st.session_state["text"] = ""
-if "output" not in st.session_state:
-    st.session_state["output"] = ""
-if "history" not in st.session_state:
-    st.session_state["history"] = []
+    st.session_state.text = st.query_params.get("text", "")
+if "age" not in st.session_state:
+    st.session_state.age = int(st.query_params.get("age", 5))
+if "tone" not in st.session_state:
+    st.session_state.tone = st.query_params.get("tone", "Default")
 
 # Title
 st.markdown("<h1 style='text-align: center;'>🧠 Explain Like I'm 5</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Paste anything — and get it explained like you're 5 to 100 years old, with a bit of flair.</p>", unsafe_allow_html=True)
 
-# Examples
-st.markdown("📘 **Try an example:**")
+# Example buttons
+st.markdown("\ud83d\udcd8 **Try an example:**")
 col1, col2, col3 = st.columns(3)
 
 with col1:
     if st.button("🔗 What is blockchain?"):
-        st.session_state["text"] = "What is blockchain?"
+        st.session_state.text = "What is blockchain?"
+
 with col2:
     if st.button("📈 What is customer lifetime value?"):
-        st.session_state["text"] = "What is customer lifetime value?"
+        st.session_state.text = "What is customer lifetime value?"
+
 with col3:
-    if st.button("🏗️ What is a microservice?"):
-        st.session_state["text"] = "What is a microservice?"
+    if st.button("📊 What is a microservice?"):
+        st.session_state.text = "What is a microservice?"
 
-# Inputs
-text = st.text_area("📋 Paste something here:", value=st.session_state["text"])
-age = st.slider("🎂 Pick your age level:", 1, 100, 5)
-tone = st.selectbox("🎭 Add a tone (optional):", ["Default", "Funny", "Sarcastic", "Poetic"])
+# Input
+text = st.text_area("📋 Paste something here:", value=st.session_state.text, key="text_input")
+st.session_state.age = st.slider("🎂 Pick your age level:", 1, 100, st.session_state.age)
+st.session_state.tone = st.selectbox("🎭 Add a tone (optional):", ["Default", "Funny", "Sarcastic", "Poetic"], index=["Default", "Funny", "Sarcastic", "Poetic"].index(st.session_state.tone))
 
-# Explain button
+# Generate Explanation
 if st.button("💡 Explain It"):
     if not text.strip():
         st.warning("Please paste something first.")
     else:
-        with st.spinner("Thinking really hard... 🧯"):
-            tone_instruction = "" if tone == "Default" else f"Use a {tone.lower()} tone."
-            prompt = f"Explain the following to someone who is {age} years old. {tone_instruction}\n\n{text}"
+        with st.spinner("Thinking really hard... 🛯️"):
+            tone_instruction = "" if st.session_state.tone == "Default" else f"Use a {st.session_state.tone.lower()} tone."
+            prompt = f"Explain the following to someone who is {st.session_state.age} years old. {tone_instruction}\n\n{text}"
 
             try:
                 response = client.chat.completions.create(
@@ -63,50 +61,51 @@ if st.button("💡 Explain It"):
                     max_tokens=1000
                 )
                 explanation = response.choices[0].message.content.strip()
-                st.session_state["text"] = text
                 st.session_state["output"] = explanation
-                st.session_state["history"].insert(0, {
+                st.session_state.setdefault("history", []).insert(0, {
                     "text": text,
-                    "age": age,
-                    "tone": tone,
+                    "age": st.session_state.age,
+                    "tone": st.session_state.tone,
                     "output": explanation
                 })
-                st.session_state["history"] = st.session_state["history"][:3]
+                st.session_state["history"] = st.session_state["history"][:3]  # keep last 3
                 st.balloons()
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
 
-# Display explanation
-if st.session_state["output"]:
+# Display result if present
+if "output" in st.session_state:
     explanation = st.session_state["output"]
     st.success("Done! Here's your explanation:")
-    st.markdown("🗾️ **Your Explanation:**")
-    st.markdown(explanation)
+    st.markdown("🗾be️ **Your Explanation:**")
+    st.markdown(f"{explanation}")
 
-    # Save/share
-    save_text = f"""📋 Original Prompt:
+    # Download & share
+    save_text = f"""
+📋 Original Prompt:
 {text.strip()}
 
 🎂 Age Level:
-{age}
+{st.session_state.age}
 
 🎭 Tone:
-{tone}
+{st.session_state.tone}
 
-🗾️ Explanation:
+🗾be️ Explanation:
 {explanation}
 """
     st.download_button("⬇️ Save as Text", save_text, file_name="explanation.txt")
 
     encoded_text = urllib.parse.quote_plus(text)
-    encoded_tone = urllib.parse.quote_plus(tone)
-    share_link = f"{base_url}?text={encoded_text}&age={age}&tone={encoded_tone}"
+    encoded_tone = urllib.parse.quote_plus(st.session_state.tone)
+    share_link = f"{base_url}?text={encoded_text}&age={st.session_state.age}&tone={encoded_tone}"
+
     st.markdown("🔗 **Share this explanation**")
     st.code(share_link)
     st.button("📋 Copy to clipboard", on_click=st.toast, args=("Link copied!",))
 
-# History
-if st.session_state["history"]:
+# Show last 3 explanations
+if st.session_state.get("history"):
     st.markdown("---")
     st.markdown("🔄 **Previous Explanations:**")
     for i, h in enumerate(st.session_state["history"]):
@@ -128,7 +127,7 @@ st.markdown("""
 </p>
 """, unsafe_allow_html=True)
 
-# Retro Counter
+# Retro visitor counter
 st.markdown(
     "<p style='text-align: center;'><img src='https://visitor-badge.laobi.icu/badge?page_id=explain-like-im-five' alt='visitor badge'></p>",
     unsafe_allow_html=True
