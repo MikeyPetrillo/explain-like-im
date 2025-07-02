@@ -25,15 +25,17 @@ preloaded_text = query.get("text", "")
 preloaded_age = int(query.get("age", 5))
 preloaded_tone = query.get("tone", "Default")
 
-# Sidebar presets
-with st.sidebar:
-    st.header("📘 Try an example")
-    preset = st.selectbox(
-        "Choose a topic:",
-        ["", "What is quantum physics?", "How do mortgages work?", "What is blockchain?", "Explain climate change"]
-    )
-    if preset:
-        preloaded_text = preset
+# Example buttons
+st.markdown("📘 **Try an example:**")
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🔗 What is blockchain?"):
+        preloaded_text = "What is blockchain?"
+
+with col2:
+    if st.button("📈 What is customer lifetime value?"):
+        preloaded_text = "What is customer lifetime value?"
 
 # Input
 text = st.text_area("📋 Paste something here:", value=preloaded_text)
@@ -69,8 +71,22 @@ if "output" in st.session_state:
     st.markdown("🧾 **Your Explanation:**")
     st.markdown(f"{explanation}")
 
+    # Build text file contents
+    save_text = f"""📋 Original Prompt:
+{text.strip()}
+
+🎂 Age Level:
+{age}
+
+🎭 Tone:
+{tone}
+
+🧾 Explanation:
+{explanation}
+"""
+
     # Download
-    st.download_button("⬇️ Save as Text", explanation, file_name="explanation.txt")
+    st.download_button("⬇️ Save as Text", save_text, file_name="explanation.txt")
 
     # Share link
     encoded_text = urllib.parse.quote_plus(text)
