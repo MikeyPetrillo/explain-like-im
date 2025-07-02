@@ -1,127 +1,74 @@
 import streamlit as st
-import os
-import random
-import time
-import urllib.parse
-from dotenv import load_dotenv
 from openai import OpenAI
+from dotenv import load_dotenv
+import os
+import urllib.parse
+import time
 
-# Load API key
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
+
+# Set up OpenAI API key from Streamlit secrets or .env
+api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 client = OpenAI(api_key=api_key)
 
-# Streamlit config
-st.set_page_config(page_title="Explain Like I'm...", page_icon="🧠")
+# App config
+st.set_page_config(page_title="🧠 Explain Like I'm 5", layout="centered")
 
-# Sidebar
-with st.sidebar:
-    st.title("🧠 Explain Like I'm...")
-    st.markdown("""
-This tiny tool helps you reframe any concept for any age — from 1 to 100.
+# Define the base URL for sharing
+base_url = "https://explain-like-im-five.streamlit.app/"
 
-- Great for simplifying complex ideas
-- Built in one night with GPT
+# Title and subtitle
+st.markdown("<h1 style='text-align: center;'>🧠 Explain Like I'm 5</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Paste anything — and get it explained like you're 5 to 100 years old.</p>", unsafe_allow_html=True)
 
-[💬 Give feedback](https://tally.so/r/nGVy4o)
-""")
+# User input
+text = st.text_area("✍️ Paste something here:", placeholder="E.g. What is quantum computing?")
 
-# Hero
-st.markdown("""
-## 🧠 Explain Like I'm...
-Explain any concept in a way a **1 to 100-year-old** could understand.
+age = st.slider("🎂 Pick your age level:", min_value=1, max_value=100, value=5)
 
-Just paste your text. Pick an age. Boom — explained.
-
-🤯 🧒 👩‍🎓 👨‍💼 👵  
----
-""")
-
-# Query param handling
-query_params = st.query_params
-if "q" in query_params:
-    st.session_state.input_text = urllib.parse.unquote(query_params["q"])
-if "a" in query_params:
-    st.session_state.age = int(query_params["a"])
-
-# Example buttons
-example_1 = "What is blockchain?"
-example_2 = "Why do we pay taxes?"
-
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("💡 Try Example: Blockchain"):
-        st.session_state.input_text = example_1
-with col2:
-    if st.button("💡 Try Example: Taxes"):
-        st.session_state.input_text = example_2
-
-# Text input
-if "input_text" not in st.session_state:
-    st.session_state.input_text = ""
-
-input_text = st.text_area("🔍 What do you want explained?", st.session_state.input_text, height=200)
-st.session_state.input_text = input_text
-
-# Tone selection
-tone = st.selectbox("🗣️ Choose a tone (optional)", ["Default", "Funny", "Poetic", "Sarcastic"])
-
-# Age slider
-if "age" not in st.session_state:
-    st.session_state.age = 5
-
-col3, col4 = st.columns([3, 1])
-with col3:
-    age = st.slider("🎂 Explain like I'm...", 1, 100, st.session_state.age)
-    st.session_state.age = age
-with col4:
-    if st.button("🎲 Surprise Me"):
-        st.session_state.age = random.randint(1, 100)
-        st.rerun()
-
-emoji = "🍼" if age < 10 else "🎓" if age < 25 else "💼" if age < 65 else "🧓"
-st.caption(f"You're explaining this to someone who is **{age} years old** — {emoji}")
-st.markdown("---")
-
-# Explanation generator
-if st.button("🧠 Explain it!"):
-    if not input_text.strip():
-        st.warning("Please enter some text.")
+# Call OpenAI
+if st.button("Explain It"):
+    if not text.strip():
+        st.warning("Please paste something first.")
     else:
-        with st.spinner("Thinking like a 5-year-old... or a 100-year-old..."):
-            style_prompt = f" Use a {tone.lower()} tone." if tone != "Default" else ""
-            prompt = f"""
-You are a world-class communicator. Your task is to explain the following text to someone who is {age} years old.{style_prompt}
-
-Use vocabulary, tone, and examples appropriate for someone that age. Be empathetic, concise, and funny if appropriate.
-
-Text to explain:
-\"\"\"{input_text}\"\"\"
-"""
+        with st.spinner("Thinking really hard... 🤔"):
+            prompt = f"Explain the following to someone who is {age} years old:\n\n{text}"
             try:
                 response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4",
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.7,
+                    temperature=0.7
                 )
-                explanation = response.choices[0].message.content
-
-                st.markdown("### ✍️ Here's the explanation (typing...):")
+                explanation = response.choices[0].message.content.strip()
 
                 # Typing animation
-                placeholder = st.empty()
-                typed = ""
+                output = ""
+                output_area = st.empty()
                 for char in explanation:
-                    typed += char
-                    placeholder.markdown(f"```\n{typed}\n```")
+                    output += char
+                    output_area.markdown(f"🧾 **Explanation:**\n\n{output}")
                     time.sleep(0.01)
 
-                # Share link
-                base_url = "https://your-app-name.streamlit.app"  # Replace with your deployed app URL
-                share_url = f"{base_url}?q={urllib.parse.quote(input_text)}&a={age}"
-                st.markdown(f"🔗 [Share this explanation](<{share_url}>)")
+                # Shareable link
+                encoded_text = urllib.parse.quote_plus(text)
+                share_link = f"{base_url}?text={encoded_text}&age={age}"
 
-                st.button("🔁 Try another age or input", on_click=st.rerun)
+                st.markdown("🔗 **Share this explanation**")
+                st.code(share_link)
+                st.button("📋 Copy to clipboard", on_click=st.toast, args=("Link copied!",))
 
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
+
+# Feedback
+st.markdown("---")
+st.markdown("📬 **Have feedback or want to suggest a feature?**")
+st.markdown("[Submit Feedback via Tally](https://tally.so/r/nGVy4o)")
+
+# Optional: preload from URL query params
+query = st.query_params
+if "text" in query and "age" in query:
+    preloaded_text = query["text"]
+    preloaded_age = int(query["age"])
+    st.text_area("✍️ Paste something here:", value=preloaded_text, key="from_link")
+    st.slider("🎂 Pick your age level:", min_value=1, max_value=100, value=preloaded_age, key="from_link_age")
