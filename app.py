@@ -25,20 +25,28 @@ preloaded_text = query.get("text", "")
 preloaded_age = int(query.get("age", 5))
 preloaded_tone = query.get("tone", "Default")
 
+# Keep prompt state
+if "text_input" not in st.session_state:
+    st.session_state["text_input"] = preloaded_text
+
 # Example buttons
 st.markdown("📘 **Try an example:**")
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("🔗 What is blockchain?"):
-        preloaded_text = "What is blockchain?"
+    if st.button("🔗 Blockchain"):
+        st.session_state["text_input"] = "What is blockchain?"
 
 with col2:
-    if st.button("📈 What is customer lifetime value?"):
-        preloaded_text = "What is customer lifetime value?"
+    if st.button("📈 Customer Lifetime Value"):
+        st.session_state["text_input"] = "What is customer lifetime value?"
 
-# Input
-text = st.text_area("📋 Paste something here:", value=preloaded_text)
+with col3:
+    if st.button("🏗 Microservice"):
+        st.session_state["text_input"] = "What is a microservice?"
+
+# Input form
+text = st.text_area("📋 Paste something here:", value=st.session_state["text_input"])
 age = st.slider("🎂 Pick your age level:", min_value=1, max_value=100, value=preloaded_age)
 tone = st.selectbox("🎭 Add a tone (optional):", ["Default", "Funny", "Sarcastic", "Poetic"], index=["Default", "Funny", "Sarcastic", "Poetic"].index(preloaded_tone))
 
@@ -66,7 +74,7 @@ if st.button("💡 Explain It"):
                     "tone": tone,
                     "output": explanation
                 })
-                st.session_state["history"] = st.session_state["history"][:3]  # keep last 3
+                st.session_state["history"] = st.session_state["history"][:3]  # Keep last 3
                 st.balloons()
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
@@ -75,12 +83,11 @@ if st.button("💡 Explain It"):
 if "output" in st.session_state:
     explanation = st.session_state["output"]
     st.success("Done! Here's your explanation:")
-    st.markdown("🗾️ **Your Explanation:**")
-    st.markdown(f"{explanation}")
+    st.markdown("🧾 **Your Explanation:**")
+    st.markdown(explanation)
 
-    # Download & share
-    save_text = f"""\
-📋 Original Prompt:
+    # Save & share
+    save_text = f"""📋 Original Prompt:
 {text.strip()}
 
 🎂 Age Level:
@@ -89,7 +96,7 @@ if "output" in st.session_state:
 🎭 Tone:
 {tone}
 
-🗾️ Explanation:
+🧾 Explanation:
 {explanation}
 """
 
@@ -106,7 +113,7 @@ if "output" in st.session_state:
 # Show last 3 explanations
 if st.session_state.get("history"):
     st.markdown("---")
-    st.markdown("🔄 **Previous Explanations:**")
+    st.markdown("🕘 **Previous Explanations:**")
     for i, h in enumerate(st.session_state["history"]):
         with st.expander(f"#{i+1}: {h['text'][:50]}..."):
             st.markdown(f"**🎂 Age:** {h['age']} | **🎭 Tone:** {h['tone']}")
