@@ -4,60 +4,65 @@ from dotenv import load_dotenv
 import os
 import urllib.parse
 
-# Load .env
+# Load environment variables
 load_dotenv()
 
-# Set OpenAI key
+# OpenAI API Key
 api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
 client = OpenAI(api_key=api_key)
 
-# Config
+# Page config
 st.set_page_config(page_title="🧠 Explain Like I'm 5", layout="centered")
-base_url = "https://explain-like-im-five.streamlit.app/"
 
-# Title
+# Hide sidebar
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
+
+# App title
 st.markdown("<h1 style='text-align: center;'>🧠 Explain Like I'm 5</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Paste anything — and get it explained like you're 5 to 100 years old, with a bit of flair.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Paste anything — and get it explained like you're 5 to 100 years old, with flair.</p>", unsafe_allow_html=True)
 
-# Query params
+# Preloaded query params
 query = st.query_params
 preloaded_text = query.get("text", "")
 preloaded_age = int(query.get("age", 5))
 preloaded_tone = query.get("tone", "Default")
-
-# Keep prompt state
-if "text_input" not in st.session_state:
-    st.session_state["text_input"] = preloaded_text
 
 # Example buttons
 st.markdown("📘 **Try an example:**")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    if st.button("🔗 Blockchain"):
-        st.session_state["text_input"] = "What is blockchain?"
+    if st.button("🔗 What is blockchain?"):
+        preloaded_text = "What is blockchain?"
 
 with col2:
-    if st.button("📈 Customer Lifetime Value"):
-        st.session_state["text_input"] = "What is customer lifetime value?"
+    if st.button("📈 What is customer lifetime value?"):
+        preloaded_text = "What is customer lifetime value?"
 
 with col3:
-    if st.button("🏗 Microservice"):
-        st.session_state["text_input"] = "What is a microservice?"
+    if st.button("🧱 What is a microservice?"):
+        preloaded_text = "What is a microservice?"
 
-# Input form
-text = st.text_area("📋 Paste something here:", value=st.session_state["text_input"])
+# Input fields
+text = st.text_area("📋 Paste something here:", value=preloaded_text)
 age = st.slider("🎂 Pick your age level:", min_value=1, max_value=100, value=preloaded_age)
 tone = st.selectbox("🎭 Add a tone (optional):", ["Default", "Funny", "Sarcastic", "Poetic"], index=["Default", "Funny", "Sarcastic", "Poetic"].index(preloaded_tone))
 
-# Generate Explanation
+# Generate explanation
 if st.button("💡 Explain It"):
     if not text.strip():
         st.warning("Please paste something first.")
     else:
         with st.spinner("Thinking really hard... 🧯"):
             tone_instruction = "" if tone == "Default" else f"Use a {tone.lower()} tone."
-            prompt = f"Explain the following to someone who is {age} years old. {tone_instruction}\n\n{text}"
+            prompt = (
+                f"Explain this concept to a {age}-year-old child using age-appropriate vocabulary, "
+                f"simple analogies, and examples they can relate to. {tone_instruction}\n\n{text}"
+            )
 
             try:
                 response = client.chat.completions.create(
@@ -67,6 +72,7 @@ if st.button("💡 Explain It"):
                     max_tokens=1000
                 )
                 explanation = response.choices[0].message.content.strip()
+
                 st.session_state["output"] = explanation
                 st.session_state.setdefault("history", []).insert(0, {
                     "text": text,
@@ -74,19 +80,19 @@ if st.button("💡 Explain It"):
                     "tone": tone,
                     "output": explanation
                 })
-                st.session_state["history"] = st.session_state["history"][:3]  # Keep last 3
+                st.session_state["history"] = st.session_state["history"][:3]
                 st.balloons()
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
 
-# Display result if present
+# Display explanation
 if "output" in st.session_state:
     explanation = st.session_state["output"]
     st.success("Done! Here's your explanation:")
-    st.markdown("🧾 **Your Explanation:**")
+    st.markdown("🧾 **Explanation:**")
     st.markdown(explanation)
 
-    # Save & share
+    # Save and share
     save_text = f"""📋 Original Prompt:
 {text.strip()}
 
@@ -102,6 +108,7 @@ if "output" in st.session_state:
 
     st.download_button("⬇️ Save as Text", save_text, file_name="explanation.txt")
 
+    base_url = "https://explain-like-im-five.streamlit.app/"
     encoded_text = urllib.parse.quote_plus(text)
     encoded_tone = urllib.parse.quote_plus(tone)
     share_link = f"{base_url}?text={encoded_text}&age={age}&tone={encoded_tone}"
@@ -110,10 +117,10 @@ if "output" in st.session_state:
     st.code(share_link)
     st.button("📋 Copy to clipboard", on_click=st.toast, args=("Link copied!",))
 
-# Show last 3 explanations
+# Display history
 if st.session_state.get("history"):
     st.markdown("---")
-    st.markdown("🕘 **Previous Explanations:**")
+    st.markdown("🔄 **Previous Explanations:**")
     for i, h in enumerate(st.session_state["history"]):
         with st.expander(f"#{i+1}: {h['text'][:50]}..."):
             st.markdown(f"**🎂 Age:** {h['age']} | **🎭 Tone:** {h['tone']}")
