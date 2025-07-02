@@ -40,7 +40,7 @@ text = st.text_area("📋 Paste something here:", value=preloaded_text)
 age = st.slider("🎂 Pick your age level:", min_value=1, max_value=100, value=preloaded_age)
 tone = st.selectbox("🎭 Add a tone (optional):", ["Default", "Funny", "Sarcastic", "Poetic"], index=["Default", "Funny", "Sarcastic", "Poetic"].index(preloaded_tone))
 
-# Button
+# Generate Explanation
 if st.button("💡 Explain It"):
     if not text.strip():
         st.warning("Please paste something first.")
@@ -57,26 +57,29 @@ if st.button("💡 Explain It"):
                     max_tokens=1000
                 )
                 explanation = response.choices[0].message.content.strip()
-
-                st.success("Done! Here's your explanation:")
-                st.markdown("🧾 **Your Explanation:**")
-                st.markdown(f"{explanation}")
+                st.session_state["output"] = explanation
                 st.balloons()
-
-                # Download
-                st.download_button("⬇️ Save as Text", explanation, file_name="explanation.txt")
-
-                # Share link
-                encoded_text = urllib.parse.quote_plus(text)
-                encoded_tone = urllib.parse.quote_plus(tone)
-                share_link = f"{base_url}?text={encoded_text}&age={age}&tone={encoded_tone}"
-
-                st.markdown("🔗 **Share this explanation**")
-                st.code(share_link)
-                st.button("📋 Copy to clipboard", on_click=st.toast, args=("Link copied!",))
-
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
+
+# Display result if present
+if "output" in st.session_state:
+    explanation = st.session_state["output"]
+    st.success("Done! Here's your explanation:")
+    st.markdown("🧾 **Your Explanation:**")
+    st.markdown(f"{explanation}")
+
+    # Download
+    st.download_button("⬇️ Save as Text", explanation, file_name="explanation.txt")
+
+    # Share link
+    encoded_text = urllib.parse.quote_plus(text)
+    encoded_tone = urllib.parse.quote_plus(tone)
+    share_link = f"{base_url}?text={encoded_text}&age={age}&tone={encoded_tone}"
+
+    st.markdown("🔗 **Share this explanation**")
+    st.code(share_link)
+    st.button("📋 Copy to clipboard", on_click=st.toast, args=("Link copied!",))
 
 # Feedback
 st.markdown("---")
