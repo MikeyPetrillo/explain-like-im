@@ -1,118 +1,92 @@
 import streamlit as st
 from openai import OpenAI
-from dotenv import load_dotenv
-import os
-import urllib.parse
+from datetime import datetime
+import random
+import time
 
-# Load .env
-load_dotenv()
+# Streamlit page config
+st.set_page_config(page_title="Explain Like I'm...", layout="centered")
 
-# Set OpenAI key
-api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+# OpenAI client from Streamlit secrets
+api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI(api_key=api_key)
 
-# Config
-st.set_page_config(page_title="🧠 Explain Like I'm 5", layout="centered")
-base_url = "https://explain-like-im-five.streamlit.app/"
-
-# Title
-st.markdown("<h1 style='text-align: center;'>🧠 Explain Like I'm 5</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Paste anything — and get it explained like you're 5 to 100 years old, with a bit of flair.</p>", unsafe_allow_html=True)
-
-# Query params
-query = st.query_params
-preloaded_text = query.get("text", "")
-preloaded_age = int(query.get("age", 5))
-preloaded_tone = query.get("tone", "Default")
-
-# Example buttons
-st.markdown("📘 **Try an example:**")
-col1, col2 = st.columns(2)
-
-with col1:
-    if st.button("🔗 What is blockchain?"):
-        preloaded_text = "What is blockchain?"
-
-with col2:
-    if st.button("📈 What is customer lifetime value?"):
-        preloaded_text = "What is customer lifetime value?"
-
-# Input
-text = st.text_area("📋 Paste something here:", value=preloaded_text)
-age = st.slider("🎂 Pick your age level:", min_value=1, max_value=100, value=preloaded_age)
-tone = st.selectbox("🎭 Add a tone (optional):", ["Default", "Funny", "Sarcastic", "Poetic"], index=["Default", "Funny", "Sarcastic", "Poetic"].index(preloaded_tone))
-
-# Generate Explanation
-if st.button("💡 Explain It"):
-    if not text.strip():
-        st.warning("Please paste something first.")
-    else:
-        with st.spinner("Thinking really hard... 🤯"):
-            tone_instruction = "" if tone == "Default" else f"Use a {tone.lower()} tone."
-            prompt = f"Explain the following to someone who is {age} years old. {tone_instruction}\n\n{text}"
-
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.7,
-                    max_tokens=1000
-                )
-                explanation = response.choices[0].message.content.strip()
-                st.session_state["output"] = explanation
-                st.balloons()
-            except Exception as e:
-                st.error(f"Something went wrong: {e}")
-
-# Display result if present
-if "output" in st.session_state:
-    explanation = st.session_state["output"]
-    st.success("Done! Here's your explanation:")
-    st.markdown("🧾 **Your Explanation:**")
-    st.markdown(f"{explanation}")
-
-    # Build text file contents
-    save_text = f"""📋 Original Prompt:
-{text.strip()}
-
-🎂 Age Level:
-{age}
-
-🎭 Tone:
-{tone}
-
-🧾 Explanation:
-{explanation}
-"""
-
-    # Download
-    st.download_button("⬇️ Save as Text", save_text, file_name="explanation.txt")
-
-    # Share link
-    encoded_text = urllib.parse.quote_plus(text)
-    encoded_tone = urllib.parse.quote_plus(tone)
-    share_link = f"{base_url}?text={encoded_text}&age={age}&tone={encoded_tone}"
-
-    st.markdown("🔗 **Share this explanation**")
-    st.code(share_link)
-    st.button("📋 Copy to clipboard", on_click=st.toast, args=("Link copied!",))
-
-# Feedback
-st.markdown("---")
-st.markdown("📬 **Have feedback or want to suggest a feature?**")
-st.markdown("[Submit Feedback via Tally](https://tally.so/r/nGVy4o)")
-
-# Footer
-st.markdown("---")
+# ---- App Title ----
 st.markdown("""
-<p style='text-align: center; font-size: 0.9em;'>
-  🛠️ Created by <a href='https://www.linkedin.com/in/mikelovesdata' target='_blank'>Mike Petrillo</a> · 
-  <a href='https://github.com/MikeyPetrillo/explain-like-im' target='_blank'>GitHub Repo</a>
-</p>
+    <h1 style='text-align: center;'>🧠 Explain Like I'm...</h1>
 """, unsafe_allow_html=True)
 
-# Retro visitor counter
-st.markdown(
-    "<p style='text-align: center;'><img src='https://visitor-badge.laobi.icu/badge?page_id=explain-like-im-five' alt='visitor badge'></p>",
-    unsafe_allow_html=True
-)
+# ---- Counter ----
+if "counter" not in st.session_state:
+    st.session_state.counter = 0
+
+# ---- Prompt Input ----
+st.markdown("### 💬 What do you want explained?")
+prompt = st.text_input("Enter a concept (e.g. blockchain, ROI, Kubernetes)", key="main_prompt")
+
+# ---- Example Buttons ----
+st.markdown("#### 🔍 Try an example:")
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("📦 Blockchain"):
+        prompt = "blockchain"
+with col2:
+    if st.button("📈 Customer Lifetime Value"):
+        prompt = "customer lifetime value"
+with col3:
+    if st.button("🧩 Microservices"):
+        prompt = "microservices"
+
+# ---- Age Slider ----
+age = st.slider("Select the age level to explain at", 1, 100, 5)
+
+# ---- Style Option ----
+style = st.selectbox("Add a tone or style?", ["Default", "Poetic", "Sarcastic", "Funny"])
+
+# ---- Explanation Output ----
+if st.button("✨ Explain it!") and prompt:
+    with st.spinner("Thinking really hard... 🧠"):
+        instruction = f"Explain '{prompt}' to a {age}-year-old in a {style.lower()} tone." if style != "Default" else f"Explain '{prompt}' to a {age}-year-old."
+
+        try:
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": instruction}],
+                temperature=0.7
+            )
+
+            explanation = response.choices[0].message.content
+
+            # Typing animation
+            with st.container():
+                placeholder = st.empty()
+                displayed_text = ""
+                for char in explanation:
+                    displayed_text += char
+                    placeholder.markdown(f"🧾 **Explanation:**\n\n{displayed_text}")
+                    time.sleep(0.005)
+
+            # Save to file
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open("explanations.txt", "a", encoding="utf-8") as file:
+                file.write(f"[{timestamp}] Age {age}, Prompt: {prompt}\n{explanation}\n\n")
+
+            st.session_state.counter += 1
+
+        except Exception as e:
+            st.error(f"Something went wrong: {e}")
+
+# ---- Counter ----
+st.markdown(f"✅ Total explanations generated: **{st.session_state.counter}**")
+
+# ---- Feedback ----
+st.markdown("""
+---
+📢 **Feedback?** [Click here](https://tally.so/r/nGVy4o) to tell me what you think!
+""")
+
+# ---- Creator Info ----
+st.markdown("""
+---
+Created with ❤️ by [Mike Petrillo](https://www.linkedin.com/in/mikelovesdata) · [GitHub](https://github.com/MikeyPetrillo/explain-like-im)
+""")
