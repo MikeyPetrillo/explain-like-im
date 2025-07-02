@@ -51,9 +51,10 @@ if st.button("💡 Explain It"):
 
             try:
                 response = client.chat.completions.create(
-                    model="gpt-4",
+                    model="gpt-3.5-turbo",
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.7
+                    temperature=0.7,
+                    max_tokens=1000
                 )
                 explanation = response.choices[0].message.content.strip()
 
