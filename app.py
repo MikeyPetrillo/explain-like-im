@@ -3,7 +3,6 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import urllib.parse
-import time
 
 # Load environment variables
 load_dotenv()
@@ -18,24 +17,30 @@ base_url = "https://explain-like-im-five.streamlit.app/"
 
 # Title & description
 st.markdown("<h1 style='text-align: center;'>🧠 Explain Like I'm 5</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Paste anything — and get it explained like you're 5 to 100 years old.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Paste anything — and get it explained like you're 5 to 100 years old, with a bit of flair.</p>", unsafe_allow_html=True)
 
-# Load from query params
+# Query params support
 query = st.query_params
 preloaded_text = query.get("text", "")
 preloaded_age = int(query.get("age", 5))
+preloaded_tone = query.get("tone", "Default")
 
-# Input
-text = st.text_area("✍️ Paste something here:", value=preloaded_text)
+# Input fields
+text = st.text_area("📋 Paste something here:", value=preloaded_text)
 age = st.slider("🎂 Pick your age level:", min_value=1, max_value=100, value=preloaded_age)
+tone = st.selectbox("🎭 Add a tone (optional):", ["Default", "Funny", "Sarcastic", "Poetic"], index=["Default", "Funny", "Sarcastic", "Poetic"].index(preloaded_tone))
 
-# Explain it
-if st.button("Explain It"):
+# Generate explanation
+if st.button("💡 Explain It"):
     if not text.strip():
         st.warning("Please paste something first.")
     else:
-        with st.spinner("Thinking really hard... 🤔"):
-            prompt = f"Explain the following to someone who is {age} years old:\n\n{text}"
+        with st.spinner("Thinking really hard... 🤯"):
+            # Add tone instruction
+            tone_instruction = "" if tone == "Default" else f"Use a {tone.lower()} tone."
+
+            prompt = f"Explain the following to someone who is {age} years old. {tone_instruction}\n\n{text}"
+
             try:
                 response = client.chat.completions.create(
                     model="gpt-4",
@@ -44,21 +49,15 @@ if st.button("Explain It"):
                 )
                 explanation = response.choices[0].message.content.strip()
 
-                # Typing animation
-                output = ""
-                output_area = st.empty()
-                for char in explanation:
-                    output += char
-                    output_area.markdown(f"🧾 **Explanation:**\n\n{output}")
-                    time.sleep(0.01)
-
-                # Final static output to lock in the answer
-                st.markdown("🧾 **Explanation (Final):**")
+                # Output with emoji styling
+                st.markdown("🧾 **Your Explanation:**")
                 st.markdown(f"{explanation}")
 
-                # Share link
+                # Shareable link
                 encoded_text = urllib.parse.quote_plus(text)
-                share_link = f"{base_url}?text={encoded_text}&age={age}"
+                encoded_tone = urllib.parse.quote_plus(tone)
+                share_link = f"{base_url}?text={encoded_text}&age={age}&tone={encoded_tone}"
+
                 st.markdown("🔗 **Share this explanation**")
                 st.code(share_link)
                 st.button("📋 Copy to clipboard", on_click=st.toast, args=("Link copied!",))
